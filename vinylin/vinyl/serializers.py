@@ -1,6 +1,10 @@
 from rest_framework.serializers import ModelSerializer, SlugRelatedField
 
-from store.serializers import DiscountSerializer, ImageSerializer
+from store.serializers import (
+    DiscountSerializer,
+    ImageSerializer,
+    StorageSerializer
+)
 from vinyl.models import Vinyl
 
 
@@ -24,6 +28,7 @@ class RetrieveVinylSerializer(AbstractVinylSerializer):
     country = SlugRelatedField(slug_field='name', read_only=True)
     genres = SlugRelatedField(slug_field='title', many=True, read_only=True)
     artist = SlugRelatedField(slug_field='name', read_only=True)
+    storage = StorageSerializer()
 
     class Meta:
         model = Vinyl
