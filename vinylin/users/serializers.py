@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from users.models import User, Profile
+from users.tokens import TokenGenerator
 from users.utils import _validate_password
 
 
@@ -110,3 +111,29 @@ class PasswordChangeSerializer(UserSerializer):
     class Meta:
         model = User
         fields = ('password', 'password2')
+
+
+class PasswordResetConfirmSerializer(UserSerializer):
+    token = serializers.CharField(write_only=True, required=True)
+    new_password = serializers.CharField(write_only=True, required=True)
+
+    def validate_token(self, value):
+        token_generator = TokenGenerator()
+        if not token_generator.check_token(user=self.instance, token=value):
+            raise serializers.ValidationError(
+                {'errors': ['Token is invalid or expired.']}
+            )
+        return value
+
+    def validate_new_password(self, value):
+        _validate_password(password=value, user=self.instance)
+        return value
+
+    def update(self, instance: User, validated_data):
+        instance.set_password(validated_data.get('new_password'))
+        instance.save()
+        return instance
+
+    class Meta:
+        model = User
+        fields = ('token', 'new_password')
