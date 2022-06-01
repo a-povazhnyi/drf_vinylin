@@ -13,6 +13,7 @@ from users.serializers import (
     UserSerializer,
     RegistrationSerializer,
     EmailChangeSerializer,
+    EmailConfirmSerializer,
     PasswordChangeSerializer,
 )
 
@@ -65,16 +66,17 @@ class EmailConfirmView(UpdateAPIView):
     http_method_names = ('put',)
 
     def put(self, request, *args, **kwargs):
-        user = request.user
-        is_token_valid = (
-            TokenGenerator().check_token(user, kwargs.get('token'))
+        serializer = EmailConfirmSerializer(
+            instance=request.user,
+            data=request.data
         )
+        if not serializer.is_valid():
+            return Response(
+                data=serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        if not is_token_valid:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
-
-        user.is_email_verified = True
-        user.save()
+        serializer.save()
         return Response(status=status.HTTP_202_ACCEPTED)
 
 
