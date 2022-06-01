@@ -15,6 +15,7 @@ from users.serializers import (
     EmailChangeSerializer,
     EmailConfirmSerializer,
     PasswordChangeSerializer,
+    PasswordResetConfirmSerializer
 )
 
 
@@ -117,5 +118,51 @@ class PasswordChangeView(UpdateAPIView):
                 data=serializer.errors,
                 status=status.HTTP_400_BAD_REQUEST
             )
+        serializer.save()
+        return Response(status=status.HTTP_202_ACCEPTED)
+
+
+class PasswordResetView(CreateAPIView):
+    def post(self, request, *args, **kwargs):
+        user = request.user
+        if not user.is_email_verified:
+            return Response(
+                data={'password_reset': {
+                    'errors': ['Email is not verified.']
+                }},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        self._send_password_reset_email(user)
+        return Response(status=status.HTTP_200_OK)
+
+    @staticmethod
+    def _send_password_reset_email(user):
+        token = TokenGenerator().make_token(user)
+        password_reset_email = EmailConfirmMessage(
+            code=token,
+            to=[user.email]
+        )
+        password_reset_email.subject = 'Reset your password'
+        password_reset_email.body = (
+            f'Here is your password reset code: \n{token}'
+        )
+        return password_reset_email.send(fail_silently=True)
+
+
+class PasswordResetConfirmView(UpdateAPIView):
+    http_method_names = ('put',)
+
+    def put(self, request, *args, **kwargs):
+        serializer = PasswordResetConfirmSerializer(
+            data=request.data,
+            instance=request.user
+        )
+        if not serializer.is_valid():
+            return Response(
+                data=serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         serializer.save()
         return Response(status=status.HTTP_202_ACCEPTED)
