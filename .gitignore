@@ -137,3 +137,4 @@ dmypy.json
 /vinylin/vinyl/fixtures/parsers/
 /vinylin/media/
 /vinylin/static/
+*fixtures/
