@@ -30,15 +30,12 @@ class RegistrationSerializer(UserSerializer):
             'is_superuser', 'last_login'
         )
 
-    # def validate_password(self, value):
-    #     _validate_password(password=value, user=self.instance)
-    #     return value
+    def validate_password(self, value):
+        _validate_password(password=value, user=self.instance)
+        return value
 
     def create(self, validated_data):
         profile = validated_data.pop('profile')
-        password = validated_data.get('password')
-        _validate_password(password=password, user=None)
-        # user = User(**validated_data)
         user = User.objects.create_user(**validated_data)
 
         if profile and not self._is_profile_blank(profile):
