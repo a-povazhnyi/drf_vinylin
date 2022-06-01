@@ -64,6 +64,28 @@ class EmailChangeSerializer(UserSerializer):
         fields = ('email',)
 
 
+class EmailConfirmSerializer(UserSerializer):
+    """Checks token validity and confirm email verification"""
+    token = serializers.CharField(write_only=True, required=True)
+
+    def validate_token(self, value):
+        token_generator = TokenGenerator()
+        if not token_generator.check_token(user=self.instance, token=value):
+            raise serializers.ValidationError(
+                {'errors': ['Token is invalid or expired.']}
+            )
+        return value
+
+    def update(self, instance: User, validated_data):
+        instance.is_email_verified = True
+        instance.save()
+        return instance
+
+    class Meta:
+        model = User
+        fields = ('token',)
+
+
 class PasswordChangeSerializer(UserSerializer):
     password2 = serializers.CharField(write_only=True, required=True)
 
