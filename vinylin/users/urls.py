@@ -7,6 +7,8 @@ from users.views import (
     EmailConfirmView,
     EmailChangeView,
     PasswordChangeView,
+    PasswordResetView,
+    PasswordResetConfirmView
 )
 
 
@@ -19,5 +21,7 @@ urlpatterns = [
     path('email/change/', EmailChangeView.as_view()),
 
     path('password/change/', PasswordChangeView.as_view()),
+    path('password/reset/token/', PasswordResetView.as_view()),
+    path('password/reset/confirm/', PasswordResetConfirmView.as_view())
 ]
 urlpatterns += router.urls
