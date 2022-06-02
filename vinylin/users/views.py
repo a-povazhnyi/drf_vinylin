@@ -1,100 +1,73 @@
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.generics import CreateAPIView, UpdateAPIView
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import AllowAny
 
-from users.emails import EmailConfirmMessage
 from users.models import User
 from users.permissions import IsOwner
-from users.tokens import TokenGenerator
 from users.serializers import (
     UserSerializer,
     RegistrationSerializer,
     EmailChangeSerializer,
     EmailConfirmSerializer,
     PasswordChangeSerializer,
+    PasswordResetSerializer,
     PasswordResetConfirmSerializer
 )
+from users.services import UserService
 
 
 class UserViewSet(ModelViewSet):
     model = User
     serializer_class = UserSerializer
     queryset = User.objects.all()
+    permission_classes = [IsOwner]
 
-    @action(url_path='register', methods=['post'], detail=False)
+    @action(url_path='register',
+            methods=['post'],
+            detail=False,
+            permission_classes=[AllowAny])
     def register(self, request, *args, **kwargs):
         serializer = RegistrationSerializer(data=request.data)
-
         if not serializer.is_valid():
-            return Response(
-                data=serializer.errors,
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return self.non_valid_serializer_response(serializer)
 
         serializer.save()
         return Response(status=status.HTTP_201_CREATED)
 
-    def get_authenticators(self):
-        if self.action_map.get('post') == 'register':
-            return None
-        return super().get_authenticators()
+    @action(url_path='email/verification', methods=['get'], detail=False)
+    def email_verification(self, request, *args, **kwargs):
+        if request.user.is_email_verified:
+            return self.not_verified_email_response
 
-    def get_permissions(self):
-        if self.action == 'register':
-            return [AllowAny()]
-        return [IsOwner()]
-
-
-class EmailVerificationView(CreateAPIView):
-    def post(self, request, *args, **kwargs):
-        user = request.user
-        if user.is_email_verified:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
-
-        token = TokenGenerator().make_token(user)
-        email_confirm = EmailConfirmMessage(
-            code=token,
-            to=[user.email]
-        )
-        email_confirm.send(fail_silently=True)
+        UserService(request=request).send_confirm_message_email()
         return Response(status=status.HTTP_200_OK)
 
+    @action(url_path='email/confirm', methods=['put'], detail=False)
+    def confirm_email(self, request, *args, **kwargs):
+        if request.user.is_email_verified:
+            return self.not_verified_email_response
 
-class EmailConfirmView(UpdateAPIView):
-    http_method_names = ('put',)
-
-    def put(self, request, *args, **kwargs):
         serializer = EmailConfirmSerializer(
             instance=request.user,
-            data=request.data
+            data=request.data,
+            context={'service': UserService()}
         )
         if not serializer.is_valid():
-            return Response(
-                data=serializer.errors,
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return self.non_valid_serializer_response(serializer)
 
         serializer.save()
         return Response(status=status.HTTP_202_ACCEPTED)
 
-
-class EmailChangeView(UpdateAPIView):
-    http_method_names = ('put',)
-
-    def put(self, request, *args, **kwargs):
+    @action(url_path='email/change', methods=['put'], detail=False)
+    def change_email(self, request, *args, **kwargs):
         serializer = EmailChangeSerializer(
             data=request.data,
             instance=request.user,
         )
-
         if not serializer.is_valid():
-            return Response(
-                data=serializer.errors,
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return self.non_valid_serializer_response(serializer)
 
         serializer.save()
         return Response(
@@ -102,67 +75,60 @@ class EmailChangeView(UpdateAPIView):
             status=status.HTTP_202_ACCEPTED
         )
 
-
-class PasswordChangeView(UpdateAPIView):
-    http_method_names = ('put',)
-
-    def put(self, request, *args, **kwargs):
+    @action(url_path='password/change', methods=['put'], detail=False)
+    def change_password(self, request, *args, **kwargs):
         serializer = PasswordChangeSerializer(
             data=request.data,
             instance=request.user,
-            context={'request': request}
         )
-
         if not serializer.is_valid():
-            return Response(
-                data=serializer.errors,
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return self.non_valid_serializer_response(serializer)
+
         serializer.save()
         return Response(status=status.HTTP_202_ACCEPTED)
 
+    @action(url_path='password/reset',
+            methods=['post'],
+            detail=False,
+            permission_classes=[AllowAny])
+    def reset_password(self, request, *args, **kwargs):
+        serializer = PasswordResetSerializer(
+            data=request.data,
+            context={'service': UserService()}
+        )
+        if not serializer.is_valid():
+            return self.non_valid_serializer_response(serializer)
 
-class PasswordResetView(CreateAPIView):
-    def post(self, request, *args, **kwargs):
-        user = request.user
-        if not user.is_email_verified:
-            return Response(
-                data={'password_reset': {
-                    'errors': ['Email is not verified.']
-                }},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        self._send_password_reset_email(user)
+        service = UserService()
+        service.user = serializer.data.get('email')
+        service.send_password_reset_email()
         return Response(status=status.HTTP_200_OK)
 
-    @staticmethod
-    def _send_password_reset_email(user):
-        token = TokenGenerator().make_token(user)
-        password_reset_email = EmailConfirmMessage(
-            code=token,
-            to=[user.email]
-        )
-        password_reset_email.subject = 'Reset your password'
-        password_reset_email.body = (
-            f'Here is your password reset code: \n{token}'
-        )
-        return password_reset_email.send(fail_silently=True)
-
-
-class PasswordResetConfirmView(UpdateAPIView):
-    http_method_names = ('put',)
-
-    def put(self, request, *args, **kwargs):
+    @action(url_path='password/reset/confirm',
+            methods=['put'],
+            detail=False,
+            permission_classes=[AllowAny])
+    def confirm_password_reset(self, request, *args, **kwargs):
         serializer = PasswordResetConfirmSerializer(
             data=request.data,
-            instance=request.user
+            context={'service': UserService()}
         )
         if not serializer.is_valid():
-            return Response(
+            return self.non_valid_serializer_response(serializer)
+
+        serializer.save()
+        return Response(status=status.HTTP_202_ACCEPTED)
+
+    @staticmethod
+    def non_valid_serializer_response(serializer):
+        return Response(
                 data=serializer.errors,
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        serializer.save()
-        return Response(status=status.HTTP_202_ACCEPTED)
+    @property
+    def not_verified_email_response(self):
+        return Response(
+            data={'errors': ['User\'s e-mail is not verified.']},
+            status=status.HTTP_400_BAD_REQUEST
+        )
