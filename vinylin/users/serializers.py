@@ -115,7 +115,7 @@ class PasswordResetSerializer(UserSerializer):
     email = serializers.EmailField(required=True)
 
     def validate_email(self, value):
-        service = self.context.get('service')
+        service = UserService()
         service.user = value
         if not service.user:
             raise serializers.ValidationError(
@@ -126,6 +126,8 @@ class PasswordResetSerializer(UserSerializer):
             raise serializers.ValidationError(
                 {'errors': ['User\'s e-mail is not verified.']}
             )
+
+        self.context['service'] = service
         return value
 
     class Meta:
