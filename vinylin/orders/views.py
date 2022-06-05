@@ -1,8 +1,9 @@
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.mixins import ListModelMixin
 from rest_framework.response import Response
-from rest_framework.viewsets import ModelViewSet
+from rest_framework.viewsets import GenericViewSet
 
 from orders.models import OrderItem
 from orders.serializers import (
@@ -14,9 +15,9 @@ from orders.serializers import (
 from orders.services import OrderItemService
 
 
-class OrderItemViewSet(ModelViewSet):
+class OrderItemViewSet(ListModelMixin, GenericViewSet):
     model = OrderItem
-    queryset = OrderItem.objects.filter()
+    queryset = OrderItem.objects.all()
     serializer_class = OrderItemSerializer
     permission_classes = (IsAuthenticated,)
 
@@ -62,7 +63,9 @@ class OrderItemViewSet(ModelViewSet):
         serializer = OrderItemSerializer(order, many=True)
         return Response(data=serializer.data, status=status.HTTP_201_CREATED)
 
-    @action(url_path='orders', methods=['GET'], detail=False)
+    def list(self, request, *args, **kwargs):
+        return self.show_orders(request, *args, **kwargs)
+
     def show_orders(self, request, *args, **kwargs):
         service = OrderItemService(request)
         serializer = OrderSerializer(service.order_items_, many=True)
