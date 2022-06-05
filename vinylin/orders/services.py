@@ -23,6 +23,13 @@ class OrderItemService:
                              .order_by('product_id')
         )
 
+    @property
+    def order_items_(self) -> QuerySet:
+        return (
+            Order.objects.filter(user=self._request.user)
+                         .prefetch_related('order_items')
+        )
+
     def select_cart_item_modification(self, product_id, quantity):
         if quantity == 0:
             return self.delete_cart_item(product_id)
