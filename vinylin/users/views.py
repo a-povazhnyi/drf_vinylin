@@ -93,15 +93,11 @@ class UserViewSet(RetrieveModelMixin, GenericViewSet):
             detail=False,
             permission_classes=[AllowAny])
     def reset_password(self, request, *args, **kwargs):
-        serializer = PasswordResetSerializer(
-            data=request.data,
-            context={'service': UserService()}
-        )
+        serializer = PasswordResetSerializer(data=request.data)
         if not serializer.is_valid():
             return self.non_valid_serializer_response(serializer)
 
-        service = UserService()
-        service.user = serializer.data.get('email')
+        service = serializer.context.get('service')
         service.send_password_reset_email()
         return Response(status=status.HTTP_200_OK)
 
