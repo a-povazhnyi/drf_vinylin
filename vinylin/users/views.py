@@ -25,7 +25,7 @@ class UserViewSet(ModelViewSet):
     permission_classes = [IsOwner]
 
     @action(url_path='register',
-            methods=['post'],
+            methods=['POST'],
             detail=False,
             permission_classes=[AllowAny])
     def register(self, request, *args, **kwargs):
@@ -36,7 +36,7 @@ class UserViewSet(ModelViewSet):
         serializer.save()
         return Response(status=status.HTTP_201_CREATED)
 
-    @action(url_path='email/verification', methods=['get'], detail=False)
+    @action(url_path='email/verification', methods=['GET'], detail=False)
     def email_verification(self, request, *args, **kwargs):
         if request.user.is_email_verified:
             return self.not_verified_email_response
@@ -44,7 +44,7 @@ class UserViewSet(ModelViewSet):
         UserService(request=request).send_confirm_message_email()
         return Response(status=status.HTTP_200_OK)
 
-    @action(url_path='email/confirm', methods=['put'], detail=False)
+    @action(url_path='email/confirm', methods=['PATCH'], detail=False)
     def confirm_email(self, request, *args, **kwargs):
         if request.user.is_email_verified:
             return self.not_verified_email_response
@@ -60,7 +60,7 @@ class UserViewSet(ModelViewSet):
         serializer.save()
         return Response(status=status.HTTP_202_ACCEPTED)
 
-    @action(url_path='email/change', methods=['put'], detail=False)
+    @action(url_path='email/change', methods=['PATCH'], detail=False)
     def change_email(self, request, *args, **kwargs):
         serializer = EmailChangeSerializer(
             data=request.data,
@@ -75,7 +75,7 @@ class UserViewSet(ModelViewSet):
             status=status.HTTP_202_ACCEPTED
         )
 
-    @action(url_path='password/change', methods=['put'], detail=False)
+    @action(url_path='password/change', methods=['PATCH'], detail=False)
     def change_password(self, request, *args, **kwargs):
         serializer = PasswordChangeSerializer(
             data=request.data,
@@ -88,7 +88,7 @@ class UserViewSet(ModelViewSet):
         return Response(status=status.HTTP_202_ACCEPTED)
 
     @action(url_path='password/reset',
-            methods=['post'],
+            methods=['POST'],
             detail=False,
             permission_classes=[AllowAny])
     def reset_password(self, request, *args, **kwargs):
@@ -105,7 +105,7 @@ class UserViewSet(ModelViewSet):
         return Response(status=status.HTTP_200_OK)
 
     @action(url_path='password/reset/confirm',
-            methods=['put'],
+            methods=['PATCH'],
             detail=False,
             permission_classes=[AllowAny])
     def confirm_password_reset(self, request, *args, **kwargs):
