@@ -1,16 +1,18 @@
 from rest_framework import serializers
 
-from orders.models import OrderItem
+from orders.models import OrderItem, Order
 from vinyl.serializers import VinylSerializer
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
+    product = VinylSerializer()
+
     class Meta:
         model = OrderItem
         fields = '__all__'
 
 
-class CartSerializer(OrderItemSerializer):
+class CartSerializer(serializers.ModelSerializer):
     product = VinylSerializer()
 
     class Meta:
@@ -18,20 +20,17 @@ class CartSerializer(OrderItemSerializer):
         exclude = ('order',)
 
 
-class CartItemSerializer(OrderItemSerializer):
+class CartItemSerializer(serializers.ModelSerializer):
     quantity = serializers.IntegerField(required=True)
-
-    def validate_quantity(self, value: int):
-        if value > 0:
-            ...
-        return value
 
     class Meta:
         model = OrderItem
         fields = ('product', 'quantity')
 
 
-# class AddOrderItemSerializer(OrderItemSerializer):
-#     class Meta:
-#         model = OrderItem
-#         fields = ('product', 'quantity')
+class OrderSerializer(serializers.ModelSerializer):
+    order_items = OrderItemSerializer(many=True)
+
+    class Meta:
+        model = Order
+        fields = ('id', 'status', 'total_price', 'order_items')
