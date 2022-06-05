@@ -30,7 +30,9 @@ class OrderItemManager(Manager):
     @staticmethod
     def join_relevant(queryset):
         return (
-            queryset.select_related('product', 'product__discount')
+            queryset.select_related('product')
+                    .select_related('product__discount')
+                    .select_related('product__storage')
                     .prefetch_related('product__images')
                     .prefetch_related('product__tags')
         )
