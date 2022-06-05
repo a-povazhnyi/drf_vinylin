@@ -1,8 +1,7 @@
-from typing import Union
-
 from django.core.exceptions import ValidationError
 from django.db.models import QuerySet, F, Sum, DecimalField
 from django.db import transaction
+from django.db.utils import IntegrityError
 
 from orders.models import OrderItem, Order
 from orders.emails import OrderEmailMessage
@@ -36,9 +35,6 @@ class OrderItemService:
         return self.add_cart_item(product_id, quantity)
 
     def add_cart_item(self, product_id, quantity):
-        if not self._is_quantity_valid(product_id, quantity):
-            return None
-
         order_item, created_order_item = OrderItem.objects.get_or_create(
             cart=self._cart,
             order=None,
@@ -69,10 +65,13 @@ class OrderItemService:
             total_price
         )
         if not discard_balance:
-            self.errors = {'balance': ['You have not enough balance.']}
+            self.errors.update({'balance': ['You have not enough balance.']})
             return None
 
-        self._update_storage(self.cart_items)
+        storage_update = self._update_storage(self.cart_items)
+        if not storage_update:
+            self.errors.update({'quantity': ['Not enough products in stock.']})
+            return None
 
         new_order = Order.objects.create(
             user=self._request.user,
@@ -82,27 +81,19 @@ class OrderItemService:
         self.cart_items.update(order=new_order, cart=None)
 
         order_items = OrderItem.objects.filter(order=new_order)
-        self._mail_order(
+        self._send_order_mail(
             request=self._request,
-            context=self._get_email_context(order_items, total_price)
+            context={'order_items': order_items, 'total_price': total_price}
         )
         return order_items
-
-    def _is_quantity_valid(self, product_id, quantity):
-        storage_quantity = Storage.objects.get(product_id=product_id).quantity
-        if storage_quantity < quantity:
-            self.errors.update({'quantity': ['Not enough products in stock.']})
-
-            # self.errors.append('Not enough products in stock.')
-            return False
-        return True
 
     @staticmethod
     def _count_total_price(queryset):
         if not queryset.exists():
             return None
         return round(
-            queryset.aggregate(Sum('final_price'))['final_price__sum'], 2)
+            queryset.aggregate(Sum('final_price'))['final_price__sum'], 2
+        )
 
     @staticmethod
     def _discard_user_balance(request, total_price):
@@ -130,13 +121,13 @@ class OrderItemService:
             storage.quantity = F('quantity') - item.quantity
             storages.append(storage)
 
-        return Storage.objects.bulk_update(storages, ['quantity'])
+        try:
+            Storage.objects.bulk_update(storages, ['quantity'])
+            return storages
+        except IntegrityError:
+            return None
 
     @staticmethod
-    def _mail_order(request, context):
+    def _send_order_mail(request, context):
         message = OrderEmailMessage(request, context)
         return message.send(fail_silently=True)
-
-    @staticmethod
-    def _get_email_context(order_items, total_price):
-        return {'order_items': order_items, 'total_price': total_price}
