@@ -7,7 +7,8 @@ from orders.models import OrderItem
 from orders.serializers import (
     OrderItemSerializer,
     CartSerializer,
-    CartItemSerializer
+    CartItemSerializer,
+    OrderSerializer
 )
 from orders.services import OrderItemService
 
@@ -54,11 +55,16 @@ class OrderItemViewSet(ModelViewSet):
         service = OrderItemService(request)
         order = service.make_order()
         if service.errors:
-            return Response(
-                data=service.errors,
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        return Response()
+            self.service_errors_response(service)
+
+        serializer = OrderItemSerializer(order, many=True)
+        return Response(data=serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(url_path='orders', methods=['GET'], detail=False)
+    def show_orders(self, request, *args, **kwargs):
+        service = OrderItemService(request)
+        serializer = OrderSerializer(service.order_items_, many=True)
+        return Response(data=serializer.data, status=status.HTTP_200_OK)
 
     @staticmethod
     def non_valid_serializer_response(serializer):
