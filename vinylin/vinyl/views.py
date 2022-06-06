@@ -1,11 +1,10 @@
-from rest_framework.mixins import RetrieveModelMixin, ListModelMixin
-from rest_framework.viewsets import GenericViewSet
+from rest_framework.viewsets import ReadOnlyModelViewSet
 
 from vinyl.models import Vinyl
 from vinyl.serializers import VinylSerializer, RetrieveVinylSerializer
 
 
-class VinylViewSet(RetrieveModelMixin, ListModelMixin, GenericViewSet):
+class VinylViewSet(ReadOnlyModelViewSet):
     model = Vinyl
     queryset = Vinyl.objects.all()
     http_method_names = ('get',)
