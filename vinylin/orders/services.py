@@ -1,42 +1,54 @@
 from django.core.exceptions import ValidationError
 from django.db.models import QuerySet, F, Sum, DecimalField
-from django.db import transaction
+from django.db import transaction, connection
 from django.db.utils import IntegrityError
 
 from orders.models import OrderItem, Order
 from orders.emails import OrderEmailMessage
-from store.models import Storage
 
 
 class OrderItemService:
     def __init__(self, request):
         self._request = request
+        self._user = request.user
         self._cart = request.user.cart
 
         self.errors = {}
 
     @property
+    def request(self):
+        return self._request
+
+    @property
+    def user(self):
+        return self._user
+
+    @property
+    def cart(self):
+        return self._cart
+
+    @property
     def cart_items(self) -> QuerySet:
         return (
-            OrderItem.objects.filter(cart=self._cart)
+            OrderItem.objects.filter(cart=self.cart)
                              .order_by('product_id')
         )
 
     @property
-    def order_items_(self) -> QuerySet:
+    def existing_order_items(self) -> QuerySet:
         return (
-            Order.objects.filter(user=self._request.user)
+            Order.objects.filter(user=self.user)
                          .prefetch_related('order_items')
         )
 
     def select_cart_item_modification(self, product_id, quantity):
         if quantity == 0:
             return self.delete_cart_item(product_id)
-        return self.add_cart_item(product_id, quantity)
+        return self.add_or_update_cart_item(product_id, quantity)
 
-    def add_cart_item(self, product_id, quantity):
+    def add_or_update_cart_item(self, product_id, quantity):
         order_item, created_order_item = OrderItem.objects.get_or_create(
-            cart=self._cart,
+            cart=self.cart,
             order=None,
             product_id=product_id,
         )
@@ -47,42 +59,40 @@ class OrderItemService:
 
     def change_cart_item_quantity(self, product_id, quantity):
         return (
-            OrderItem.objects.filter(cart=self._cart, product_id=product_id)
+            OrderItem.objects.filter(cart=self.cart, product_id=product_id)
                              .update(quantity=F('quantity') + quantity)
         )
 
     def delete_cart_item(self, product_id):
         return (
-            OrderItem.objects.filter(cart=self._cart, product_id=product_id)
+            OrderItem.objects.filter(cart=self.cart, product_id=product_id)
                              .delete()
         )
 
     @transaction.atomic
-    def make_order(self):
+    def create_order(self):
         total_price = self._count_total_price(self.cart_items)
         discard_balance = self._discard_user_balance(
-            self._request,
+            self.user,
             total_price
         )
         if not discard_balance:
-            self.errors.update({'balance': ['You have not enough balance.']})
             return None
 
-        storage_update = self._update_storage(self.cart_items)
+        storage_update = self._update_storage()
         if not storage_update:
-            self.errors.update({'quantity': ['Not enough products in stock.']})
             return None
 
-        new_order = Order.objects.create(
-            user=self._request.user,
+        order = Order.objects.create(
+            user=self.user,
             status='PA',
             total_price=total_price,
         )
-        self.cart_items.update(order=new_order, cart=None)
+        self.cart_items.update(order=order, cart=None)
 
-        order_items = OrderItem.objects.filter(order=new_order)
+        order_items = OrderItem.objects.filter(order=order)
         self._send_order_mail(
-            request=self._request,
+            request=self.request,
             context={'order_items': order_items, 'total_price': total_price}
         )
         return order_items
@@ -95,10 +105,9 @@ class OrderItemService:
             queryset.aggregate(Sum('final_price'))['final_price__sum'], 2
         )
 
-    @staticmethod
-    def _discard_user_balance(request, total_price):
+    def _discard_user_balance(self, user, total_price):
         try:
-            user_profile = request.user.profile
+            user_profile = user.profile
             new_user_balance = float(user_profile.balance) - float(total_price)
 
             decimal = DecimalField(max_digits=6, decimal_places=2)
@@ -110,21 +119,23 @@ class OrderItemService:
             return user_profile
 
         except ValidationError:
+            self.errors.update({'balance': ['You have not enough balance.']})
             return None
 
-    @staticmethod
-    def _update_storage(queryset):
-        """Updates the quantity of products in the storage"""
-        storages = []
-        for item in queryset.select_related('product__storage'):
-            storage = item.product.storage
-            storage.quantity = F('quantity') - item.quantity
-            storages.append(storage)
-
+    def _update_storage(self):
         try:
-            Storage.objects.bulk_update(storages, ['quantity'])
-            return storages
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f'UPDATE store_storage ss SET quantity=(quantity - ('
+                    f'SELECT oo.quantity FROM orders_orderitem oo '
+                    f'WHERE oo.cart_id={self.cart.pk})) '
+                    f'WHERE ss.product_id IN (SELECT oo.product_id '
+                    f'FROM orders_orderitem oo '
+                    f'WHERE oo.cart_id={self.cart.pk})'
+                )
+            return cursor.rowcount
         except IntegrityError:
+            self.errors.update({'quantity': ['Not enough products in stock.']})
             return None
 
     @staticmethod
