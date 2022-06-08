@@ -3,7 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.mixins import RetrieveModelMixin, CreateModelMixin
 from rest_framework.viewsets import GenericViewSet
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from users.models import User
 from users.permissions import IsOwner
@@ -43,7 +43,7 @@ class UserViewSet(RetrieveModelMixin, CreateModelMixin, GenericViewSet):
             return [AllowAny()]
         elif self.action == 'retrieve':
             return [IsOwner()]
-        return []
+        return [IsAuthenticated()]
 
     def create(self, request, *args, **kwargs):
         service = UserService()
