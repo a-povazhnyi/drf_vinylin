@@ -40,5 +40,5 @@ Once migrations have applied, you can start the server:
 (venv)$ python manage.py runserver
 ```
 
-Use swagger URL to navigate and test the API:
-***http://127.0.0.1:8000/swagger/***
+Use swagger to navigate and test the API:
+**http://***your-adress***/swagger/**
