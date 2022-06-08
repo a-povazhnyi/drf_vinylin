@@ -7,7 +7,6 @@ from vinyl.serializers import VinylSerializer, RetrieveVinylSerializer
 class VinylViewSet(ReadOnlyModelViewSet):
     model = Vinyl
     queryset = Vinyl.objects.all()
-    http_method_names = ('get',)
 
     def get_serializer_class(self):
         if self.action == 'retrieve':
