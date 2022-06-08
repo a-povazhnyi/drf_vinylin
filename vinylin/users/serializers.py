@@ -2,7 +2,6 @@ from rest_framework import serializers
 
 from users.models import User, Profile
 from users.services import UserService
-from users.validators import _validate_password
 
 
 class ProfileSerializer(serializers.ModelSerializer):

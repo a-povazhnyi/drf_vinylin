@@ -18,17 +18,3 @@ def birthday_validator(birthday):
         raise ValidationError(
             _('Your birthday couldn\'t have been that long ago')
         )
-
-
-def _validate_password(password, user):
-    errors = {}
-    try:
-        password_validation.validate_password(
-            password=password,
-            user=user
-        )
-    except exceptions.ValidationError as e:
-        errors['errors'] = list(e.messages)
-
-    if errors:
-        raise serializers.ValidationError(errors)
