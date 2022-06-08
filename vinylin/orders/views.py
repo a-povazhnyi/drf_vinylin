@@ -26,18 +26,19 @@ class OrderItemViewSet(ViewSet):
     @action(url_path='cart', methods=['GET', 'PATCH'], detail=False)
     def cart(self, request, *args, **kwargs):
         view_func = self.cart_map.get(request.method)
-        return view_func(request)
+        return view_func(request, *args, **kwargs)
 
-    def show_cart(self, request):
+    @staticmethod
+    def show_cart(request, *args, **kwargs):
         service = OrderItemService(request)
         serializer = CartSerializer(service.cart_items, many=True)
         return Response(data=serializer.data, status=status.HTTP_200_OK)
 
-    def change_cart_item(self, request):
+    def change_cart_item(self, request, *args, **kwargs):
         service = OrderItemService(request)
         serializer = CartItemSerializer(data=request.data)
         if not serializer.is_valid():
-            return self.non_valid_serializer_response(serializer)
+            return self.non_valid_response(serializer=serializer)
 
         service.select_cart_item_modification(
             product_id=serializer.data.get('product'),
@@ -45,37 +46,30 @@ class OrderItemViewSet(ViewSet):
         )
 
         if service.errors:
-            return self.service_errors_response(service)
+            return self.non_valid_response(service=service)
         return Response(data=serializer.data, status=status.HTTP_200_OK)
 
-    @action(url_path='make', methods=['PATCH'], detail=False)
-    def make_order(self, request):
+    def list(self, request, *args, **kwargs):
+        """Show all user`s orders"""
         service = OrderItemService(request)
-        order = service.make_order()
+        serializer = OrderSerializer(service.existing_order_items, many=True)
+        return Response(data=serializer.data, status=status.HTTP_200_OK)
+
+    def create(self, request, *args, **kwargs):
+        """Create and return order or errors if exist"""
+        service = OrderItemService(request)
+        order = service.create_order()
         if service.errors:
-            self.service_errors_response(service)
+            return self.non_valid_response(service=service)
 
         serializer = OrderItemSerializer(order, many=True)
         return Response(data=serializer.data, status=status.HTTP_201_CREATED)
 
-    def list(self, request, *args, **kwargs):
-        return self.show_orders(request, *args, **kwargs)
-
-    def show_orders(self, request, *args, **kwargs):
-        service = OrderItemService(request)
-        serializer = OrderSerializer(service.order_items_, many=True)
-        return Response(data=serializer.data, status=status.HTTP_200_OK)
-
     @staticmethod
-    def non_valid_serializer_response(serializer):
-        return Response(
-            data=serializer.errors,
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    @staticmethod
-    def service_errors_response(service):
-        return Response(
-            data={'errors': service.errors},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+    def non_valid_response(serializer=None, service=None):
+        if serializer or service:
+            return Response(
+                data=serializer.errors if serializer else service.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        return Response(status=status.HTTP_400_BAD_REQUEST)
