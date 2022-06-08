@@ -1,10 +1,7 @@
 from datetime import datetime
 
-from django.contrib.auth import password_validation
-from django.core import exceptions
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
-from rest_framework import serializers
 
 
 def birthday_validator(birthday):
