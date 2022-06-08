@@ -147,7 +147,6 @@ class UserViewSet(RetrieveModelMixin, CreateModelMixin, GenericViewSet):
 
     @staticmethod
     def non_valid_serializer_response(serializer):
-        # bad_response one func for all
         return Response(
                 data=serializer.errors,
                 status=status.HTTP_400_BAD_REQUEST
