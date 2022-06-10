@@ -39,7 +39,10 @@ class UserViewSet(RetrieveModelMixin, CreateModelMixin, GenericViewSet):
         }
 
     def get_permissions(self):
+        print(self.action)
         if self.action == 'create':
+            return [AllowAny()]
+        elif self.action == 'reset_password':
             return [AllowAny()]
         elif self.action == 'retrieve':
             return [IsOwner()]
@@ -116,8 +119,7 @@ class UserViewSet(RetrieveModelMixin, CreateModelMixin, GenericViewSet):
 
     @action(url_path='password/reset',
             methods=['POST', 'PATCH'],
-            detail=False,
-            permission_classes=[AllowAny])
+            detail=False)
     def reset_password(self, request, *args, **kwargs):
         view_func = self.password_reset_map.get(request.method)
         return view_func(request, *args, **kwargs)
