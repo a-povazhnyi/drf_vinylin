@@ -1,7 +1,5 @@
-from django.contrib.auth.models import AnonymousUser
 from django.contrib.auth import password_validation
 from django.core.exceptions import ValidationError
-from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
 from users.emails import EmailConfirmMessage
@@ -11,9 +9,21 @@ from users.tokens import TokenGenerator
 
 class UserService:
     def __init__(self, user=None):
+        self._user_model = User
+        self._profile_model = Profile
+
         self._user: User = user
         self._email = None
+
         self._token_generator = TokenGenerator()
+
+    @property
+    def user_model(self):
+        return self._user_model
+
+    @property
+    def profile_model(self):
+        return self._profile_model
 
     @property
     def user(self):
@@ -34,14 +44,6 @@ class UserService:
             self._user = user
             self._email = user.email
 
-    # @user.setter
-    # def user(self, email):
-    #     queryset = User.objects.filter(email=email)
-    #     if not queryset.exists():
-    #         self._user = None
-    #     else:
-    #         self._user = queryset.first()
-
     @property
     def token_generator(self):
         return self._token_generator
@@ -59,13 +61,12 @@ class UserService:
         if errors:
             raise serializers.ValidationError(errors)
 
-    @staticmethod
-    def register(data):
+    def register(self, data):
         profile = data.pop('profile', None)
-        user = User.objects.create_user(**data)
+        user = self.user_model.objects.create_user(**data)
 
         if profile:
-            Profile.objects.filter(user=user).update(**profile)
+            self.profile_model.objects.filter(user=user).update(**profile)
         return user
 
     def change_email(self, data):
