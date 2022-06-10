@@ -1,8 +1,7 @@
 from rest_framework import serializers
 
 from users.models import User, Profile
-from users.tokens import TokenGenerator
-from users.utils import _validate_password
+from users.services import UserService
 
 
 class ProfileSerializer(serializers.ModelSerializer):
@@ -12,7 +11,7 @@ class ProfileSerializer(serializers.ModelSerializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
-    profile = ProfileSerializer()
+    profile = ProfileSerializer(required=False)
 
     class Meta:
         model = User
@@ -23,42 +22,30 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class RegistrationSerializer(UserSerializer):
+    @property
+    def service(self) -> UserService:
+        return self.context.get('service')
+
+    def validate_password(self, value):
+        self.service.validate_password(value)
+        return value
+
+    def create(self, validated_data):
+        return self.service.register(validated_data)
+
     class Meta:
         model = User
         exclude = (
             'date_joined', 'is_active', 'is_staff',
-            'is_superuser', 'last_login'
+            'is_superuser', 'last_login', 'is_email_verified'
         )
-
-    # def validate_password(self, value):
-    #     _validate_password(password=value, user=self.instance)
-    #     return value
-
-    def create(self, validated_data):
-        profile = validated_data.pop('profile')
-        password = validated_data.get('password')
-        _validate_password(password=password, user=None)
-        # user = User(**validated_data)
-        user = User.objects.create_user(**validated_data)
-
-        if profile and not self._is_profile_blank(profile):
-            Profile.objects.filter(user=user).update(**profile)
-        return user
-
-    @staticmethod
-    def _is_profile_blank(profile):
-        for value in profile.values():
-            if value is None:
-                return False
-        return True
 
 
 class EmailChangeSerializer(UserSerializer):
     def update(self, instance, validated_data):
-        instance.is_email_verified = False
-        instance.email = validated_data.get('email')
-        instance.save()
-        return instance
+        service = UserService(user=instance)
+        service.change_email(validated_data)
+        return service.user
 
     class Meta:
         model = User
@@ -67,20 +54,22 @@ class EmailChangeSerializer(UserSerializer):
 
 class EmailConfirmSerializer(UserSerializer):
     """Checks token validity and confirm email verification"""
-    token = serializers.CharField(write_only=True, required=True)
+    token = serializers.CharField(required=True)
+
+    @property
+    def service(self) -> UserService:
+        return self.context.get('service')
 
     def validate_token(self, value):
-        token_generator = TokenGenerator()
-        if not token_generator.check_token(user=self.instance, token=value):
+        if not self.service.is_token_valid(value):
             raise serializers.ValidationError(
                 {'errors': ['Token is invalid or expired.']}
             )
         return value
 
-    def update(self, instance: User, validated_data):
-        instance.is_email_verified = True
-        instance.save()
-        return instance
+    def update(self, instance, validated_data):
+        self.service.confirm_email()
+        return self.service.user
 
     class Meta:
         model = User
@@ -88,7 +77,11 @@ class EmailConfirmSerializer(UserSerializer):
 
 
 class PasswordChangeSerializer(UserSerializer):
-    password2 = serializers.CharField(write_only=True, required=True)
+    password2 = serializers.CharField(required=True)
+
+    @property
+    def service(self) -> UserService:
+        return self.context.get('service')
 
     def validate_password(self, value):
         """Old password validation"""
@@ -100,40 +93,78 @@ class PasswordChangeSerializer(UserSerializer):
 
     def validate_password2(self, value):
         """New password validation"""
-        _validate_password(password=value, user=self.instance)
+        self.service.validate_password(value)
         return value
 
     def update(self, instance: User, validated_data):
-        instance.set_password(validated_data.get('password2'))
-        instance.save()
-        return instance
+        self.service.set_password(validated_data.get('password'))
+        return self.service.user
 
     class Meta:
         model = User
         fields = ('password', 'password2')
 
 
+class PasswordResetSerializer(UserSerializer):
+    email = serializers.EmailField(required=True)
+
+    @property
+    def service(self) -> UserService:
+        return self.context.get('service')
+
+    def validate_email(self, value):
+        self.service.email = value
+        if not self.service.user:
+            raise serializers.ValidationError(
+                {'errors': ['User with this e-mail does not exist.']}
+            )
+
+        if not self.service.user.is_email_verified:
+            raise serializers.ValidationError(
+                {'errors': ['User\'s e-mail is not verified.']}
+            )
+        return value
+
+    class Meta:
+        model = User
+        fields = ('email',)
+
+
 class PasswordResetConfirmSerializer(UserSerializer):
-    token = serializers.CharField(write_only=True, required=True)
-    new_password = serializers.CharField(write_only=True, required=True)
+    email = serializers.EmailField(required=True)
+    token = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True)
+
+    @property
+    def service(self) -> UserService:
+        return self.context.get('service')
+
+    def validate_email(self, value):
+        self.service.email = value
+        if not self.service.user:
+            raise serializers.ValidationError(
+                {'errors': ['User with this e-mail does not exist.']}
+            )
+
+        self.instance = self.service.user
+        return value
 
     def validate_token(self, value):
-        token_generator = TokenGenerator()
-        if not token_generator.check_token(user=self.instance, token=value):
+        self.service.email = self.initial_data.get('email')
+        if not self.service.is_token_valid(value):
             raise serializers.ValidationError(
                 {'errors': ['Token is invalid or expired.']}
             )
         return value
 
     def validate_new_password(self, value):
-        _validate_password(password=value, user=self.instance)
+        self.service.validate_password(value)
         return value
 
     def update(self, instance: User, validated_data):
-        instance.set_password(validated_data.get('new_password'))
-        instance.save()
-        return instance
+        self.service.set_password(validated_data.get('password'))
+        return self.service.user
 
     class Meta:
         model = User
-        fields = ('token', 'new_password')
+        fields = ('token', 'email', 'new_password')

@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'phonenumber_field',
     'rest_framework',
     'rest_framework_simplejwt',
+    'drf_yasg',
     'debug_toolbar',
     'ckeditor',
 
@@ -187,4 +188,15 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(
         days=int(os.environ.get('REFRESH_TOKEN_LIFETIME', 1))
     ),
+}
+
+SWAGGER_SETTINGS = {
+    'SECURITY_DEFINITIONS': {
+        'JWT': {
+            'type': 'apiKey',
+            'in': 'header',
+            'name': 'Authorization',
+            'scheme': 'Bearer'
+        }
+    },
 }

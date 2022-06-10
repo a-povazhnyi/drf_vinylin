@@ -1,5 +1,4 @@
 from django.db import models
-from django.core.validators import MinValueValidator
 
 
 class Tag(models.Model):
@@ -68,10 +67,7 @@ class Storage(models.Model):
         on_delete=models.CASCADE,
         related_name='storage',
     )
-    quantity = models.IntegerField(
-        default=1,
-        validators=[MinValueValidator(0)],
-    )
+    quantity = models.PositiveIntegerField(default=1)
 
     def __str__(self):
         return self.product.title
