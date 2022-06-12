@@ -15,16 +15,13 @@ class UserServiceTest(TestCase):
         }
 
     def setUp(self):
-        User.objects.create_user(**self.user_data)
+        self.user = User.objects.create_user(**self.user_data)
 
     def test_email_setter(self):
-        email = self.user_data.get('email')
-        user = User.objects.get(email=email)
-
         service = UserService()
-        service.email = email
+        service.email = self.user_data.get('email')
 
-        self.assertEqual(user, service.user)
+        self.assertEqual(self.user, service.user)
 
     def test_register(self):
         new_user_data = self.user_data
@@ -45,8 +42,8 @@ class UserServiceTest(TestCase):
         service.change_email({'email': new_email})
 
         user = User.objects.filter(email=new_email)
-        assert user.exists()
 
+        self.assertTrue(user.exists())
         self.assertEqual(user.first().email, new_email)
 
     def test_confirm_email(self):
