@@ -121,7 +121,7 @@ class OrderItemServiceTest(TestCase):
             user=self.user,
             total_price=overprice
         )
-        self.assertTrue(discard_balance is None)
+        self.assertIs(discard_balance, None)
 
     def test_update_storage(self):
         self.service._update_storage()
@@ -136,7 +136,7 @@ class OrderItemServiceTest(TestCase):
         self.storage.quantity = 0
         self.storage.save()
         storage_update = self.service._update_storage()
-        self.assertTrue(storage_update is None)
+        self.assertIs(storage_update, None)
 
     @staticmethod
     def mock_send_order_mail(request, context):
