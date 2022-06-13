@@ -7,6 +7,15 @@ from users.services import UserService
 
 
 class UserViewSetTest(APITestCase):
+    @property
+    def user_data(self):
+        return {
+            'email': 'test@mail.com',
+            'password': 'DifficultPassword1',
+            'first_name': 'First',
+            'last_name': 'Last',
+        }
+
     def setUp(self):
         self.user = User.objects.create_user(**self.user_data)
         self.anonymous_client = APIClient()
@@ -25,15 +34,6 @@ class UserViewSetTest(APITestCase):
         self.client.credentials(
             HTTP_AUTHORIZATION=f'Bearer {self.access_token}'
         )
-
-    @property
-    def user_data(self):
-        return {
-            'email': 'test@mail.com',
-            'password': 'DifficultPassword1',
-            'first_name': 'First',
-            'last_name': 'Last',
-        }
 
     def test_create(self):
         data = {
