@@ -1,6 +1,6 @@
-from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
+from rest_framework_simplejwt.tokens import AccessToken
 
 from users.models import User
 from users.services import UserService
@@ -21,16 +21,7 @@ class UserViewSetTest(APITestCase):
         self.anonymous_client = APIClient()
         self.service = UserService(user=self.user)
 
-        self.jwt_response = self.client.post(
-            path=reverse('token_obtain_pair'),
-            data={
-                'email': self.user_data.get('email'),
-                'password': self.user_data.get('password')
-            },
-            format='json'
-        )
-        self.access_token = self.jwt_response.data.get('access')
-
+        self.access_token = AccessToken.for_user(self.user)
         self.client.credentials(
             HTTP_AUTHORIZATION=f'Bearer {self.access_token}'
         )
