@@ -1,0 +1,11 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+  <form method="post" action="{% url 'admin:add_balance' %}" class="add_balance">
+    {% csrf_token %}
+    {{ balance_form }}
+    {% if object_id %}
+    <input name="object_id" type="hidden" value="{{ object_id }}">
+    {% endif %}
+    <button type="submit">increase balance</button>
+  </form>
+{% endblock %}

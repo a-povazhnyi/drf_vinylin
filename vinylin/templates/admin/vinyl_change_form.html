@@ -1,0 +1,8 @@
+{% extends 'admin/change_form.html' %}
+{% block field_sets %}
+  {% if image_url %}
+    <img src="{{ image_url }}" width="150" height="150"
+         alt="admin image" class="admin-single-vinyl-img">
+  {% endif %}
+  {{ block.super }}
+{% endblock %}
