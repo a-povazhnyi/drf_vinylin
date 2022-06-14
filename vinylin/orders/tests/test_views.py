@@ -1,74 +1,19 @@
 from unittest.mock import patch
 
-from django.http import HttpRequest
-from django.urls import reverse
+import pytest
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from orders.services import OrderItemService
-from store.models import Storage
-from orders.models import OrderItem
-from vinyl.models import Vinyl
-from users.models import User
+from orders.tests.fixtures import orders_fixture
 
 
+@pytest.mark.usefixtures('orders_fixture')
 class OrderItemViewSetTest(APITestCase):
-    @property
-    def user_data(self):
-        return {
-            'email': 'test@mail.com',
-            'password': 'DifficultPassword1',
-            'first_name': 'First',
-            'last_name': 'Last',
-        }
-
-    @property
-    def vinyl_data(self):
-        return {
-            'title': 'Title',
-            'price': '10.00',
-            'part_number': '123ABC',
-            'overview': '',
-            'vinyl_title': 'Vinyl Title',
-            'artist': None,
-            'country': None,
-            'format': 'format',
-            'credits': 'Cool Credits'
-        }
-
-    @property
-    def order_item_data(self):
-        return {
-            'cart': self.user.cart,
-            'order': None,
-            'product_id': self.vinyl.pk,
-            'quantity': 10
-        }
-
     def setUp(self):
-        self.user = User.objects.create_user(**self.user_data)
-        self.vinyl = Vinyl.objects.create(**self.vinyl_data)
-        self.storage = Storage.objects.create(
-            product_id=self.vinyl.pk,
-            quantity=100
-        )
-        self.order_item = OrderItem.objects.create(**self.order_item_data)
-
-        self.jwt_response = self.client.post(
-            path=reverse('token_obtain_pair'),
-            data={
-                'email': self.user_data.get('email'),
-                'password': self.user_data.get('password')
-            },
-            format='json'
-        )
-        self.access_token = self.jwt_response.data.get('access')
         self.client.credentials(
             HTTP_AUTHORIZATION=f'Bearer {self.access_token}'
         )
-
-        self.request = HttpRequest()
-        self.request.user = self.user
         self.service = OrderItemService(self.request)
 
     def test_show_cart(self):

@@ -1,62 +1,22 @@
 from unittest.mock import patch
 
+import pytest
 from django.test import TestCase
-from django.http import HttpRequest
 
 from orders.models import OrderItem, Order
 from orders.services import OrderItemService
+from orders.tests.fixtures import orders_fixture
 from store.models import Storage
-from users.models import User, Profile
+from users.models import Profile
 from vinyl.models import Vinyl
 
 
+@pytest.mark.usefixtures('orders_fixture')
 class OrderItemServiceTest(TestCase):
-    @property
-    def user_data(self):
-        return {
-            'email': 'test@mail.com',
-            'password': 'DifficultPassword1',
-            'first_name': 'First',
-            'last_name': 'Last',
-        }
-
-    @property
-    def vinyl_data(self):
-        return {
-            'title': 'Title',
-            'price': '10.00',
-            'part_number': '123ABC',
-            'overview': '',
-            'vinyl_title': 'Vinyl Title',
-            'artist': None,
-            'country': None,
-            'format': 'format',
-            'credits': 'Cool Credits'
-        }
-
-    @property
-    def order_item_data(self):
-        return {
-            'cart': self.user.cart,
-            'order': None,
-            'product_id': self.vinyl.pk,
-            'quantity': 10
-        }
-
     def setUp(self):
-        self.user = User.objects.create_user(**self.user_data)
         self.user.profile.balance = 1000
         self.user.profile.save()
 
-        self.vinyl = Vinyl.objects.create(**self.vinyl_data)
-        self.storage = Storage.objects.create(
-            product_id=self.vinyl.pk,
-            quantity=100
-        )
-        self.order_item = OrderItem.objects.create(**self.order_item_data)
-
-        self.request = HttpRequest()
-        self.request.user = self.user
         self.service = OrderItemService(self.request)
 
     def test_add_cart_item(self):
@@ -78,7 +38,7 @@ class OrderItemServiceTest(TestCase):
         decrease_quantity_by = 2
 
         self.service.add_or_update_cart_item(
-            product_id=self.order_item_data.get('product_id'),
+            product_id=self.vinyl.pk,
             quantity=increase_quantity_by
         )
         updated_order_item1 = OrderItem.objects.get(pk=self.order_item.pk)
@@ -89,7 +49,7 @@ class OrderItemServiceTest(TestCase):
         )
 
         self.service.add_or_update_cart_item(
-            product_id=self.order_item_data.get('product_id'),
+            product_id=self.vinyl.pk,
             quantity=-decrease_quantity_by
         )
         updated_order_item2 = OrderItem.objects.get(pk=self.order_item.pk)
