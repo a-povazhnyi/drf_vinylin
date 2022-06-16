@@ -138,3 +138,5 @@ dmypy.json
 /vinylin/media/
 /vinylin/static/
 *fixtures/
+
+*.env
