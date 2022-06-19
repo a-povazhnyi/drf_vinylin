@@ -23,9 +23,8 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = bool(int(os.environ.get('DEBUG')))
 
-ALLOWED_HOSTS = [os.environ.get('ALLOWED_HOSTS')]
-INTERNAL_IPS = [os.environ.get('INTERNAL_IPS')]
-
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS').split()
+INTERNAL_IPS = os.environ.get('INTERNAL_IPS').split()
 
 # Application definition
 INSTALLED_APPS = [
