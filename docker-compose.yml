@@ -1,0 +1,38 @@
+services:
+  db:
+    container_name: db_vinylin
+    image: postgres:14.1
+    platform: linux/amd64
+    env_file:
+      ./db/.env
+    volumes:
+      - /Users/barely/coding/PyCharmProjects/vinylin_rest/db/postgresql:/var/lib/postgresql/
+    ports:
+      - "5432:5432"
+
+  drf_vinylin:
+    container_name: drf_vinylin
+    build: vinylin/
+    platform: linux/amd64
+    env_file:
+      ./vinylin/.env
+    volumes:
+      - /Users/barely/coding/PyCharmProjects/vinylin_rest/vinylin:/usr/src/vinylin/
+    command: bash entrypoint.sh
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+
+  nginx:
+    container_name: nginx_vinylin
+    build: nginx/
+    platform: linux/amd64
+    restart: on-failure
+    volumes:
+      - /Users/barely/coding/PyCharmProjects/vinylin_rest/vinylin/static:/static/
+      - /Users/barely/coding/PyCharmProjects/vinylin_rest/vinylin/media:/media/
+    ports:
+      - "1337:80"
+    depends_on:
+      - drf_vinylin
