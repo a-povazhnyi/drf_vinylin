@@ -5,8 +5,7 @@ WORKDIR /usr/src/vinylin/
 
 COPY .. .
 
-RUN apt-get update && \
-		apt-get install nano
+RUN apt-get update
 
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
