@@ -24,6 +24,22 @@ services:
     depends_on:
       - db
 
+  redis:
+    container_name: redis_vinylin
+    image: redis
+    ports:
+      - "6379:6379"
+
+  celery:
+    container_name: celery_vinylin
+    build: ./vinylin
+    command: celery -A vinylin worker -l INFO
+    volumes:
+      - /Users/barely/coding/PyCharmProjects/vinylin_rest/vinylin:/usr/src/vinylin/
+    depends_on:
+      - db
+      - redis
+
   nginx:
     container_name: nginx_vinylin
     build: nginx/

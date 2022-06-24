@@ -140,3 +140,4 @@ dmypy.json
 *fixtures/
 
 *.env
+/db/postgresql/

@@ -1,9 +1,16 @@
+from datetime import timedelta
+
 from django.contrib.auth import password_validation
 from django.core.exceptions import ValidationError
 from rest_framework import serializers
 
 from users.emails import EmailConfirmMessage
 from users.models import User, Profile
+from users.tasks import (
+    send_confirm_email_task,
+    send_password_reset_email_task,
+    send_site_reminder_task
+)
 from users.tokens import TokenGenerator
 
 
@@ -82,13 +89,19 @@ class UserService:
 
     def send_confirm_message_email(self):
         token = self._make_token()
-        email_confirm = self._get_confirm_email_message(token)
-        return email_confirm.send(fail_silently=True)
+        send_confirm_email_task.delay(token=token, email=self.user.email)
 
     def send_password_reset_email(self):
         token = self._make_token()
-        password_reset_email = self._get_password_reset_email(token)
-        return password_reset_email.send(fail_silently=True)
+        send_password_reset_email_task.delay(token=token,
+                                             email=self.user.email)
+
+    def send_site_reminder(self):
+        send_site_reminder_task.apply_async(
+            [self.user.email],
+            countdown=int(timedelta(days=3).total_seconds()),
+            expires=int(timedelta(days=14).total_seconds())
+        )
 
     def set_password(self, password):
         self.user.set_password(password)
