@@ -86,7 +86,9 @@ class UserViewSet(RetrieveModelMixin, CreateModelMixin, GenericViewSet):
         if request.user.is_email_verified:
             return self.not_verified_email_response
 
-        UserService(user=request.user).send_confirm_message_email()
+        user_service = UserService(user=request.user)
+        user_service.send_confirm_message_email()
+        user_service.send_site_reminder()
         return Response(status=status.HTTP_200_OK)
 
     def confirm_email(self, request, *args, **kwargs):

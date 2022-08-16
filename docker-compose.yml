@@ -1,0 +1,54 @@
+services:
+  db:
+    container_name: db_vinylin
+    image: postgres:latest
+    platform: linux/amd64
+    env_file:
+      ./db/.env
+    volumes:
+      - ./db/postgresql:/var/lib/postgresql/
+    ports:
+      - "5432:5432"
+
+  drf_vinylin:
+    container_name: drf_vinylin
+    build: vinylin/
+    platform: linux/amd64
+    env_file:
+      ./vinylin/.env
+    volumes:
+      - ./vinylin:/usr/src/vinylin/
+    command: bash entrypoint.sh
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+
+  redis:
+    container_name: redis_vinylin
+    image: redis
+    ports:
+      - "6379:6379"
+
+  celery:
+    container_name: celery_vinylin
+    build: ./vinylin
+    command: celery -A vinylin worker -l INFO
+    volumes:
+      - ./vinylin:/usr/src/vinylin/
+    depends_on:
+      - db
+      - redis
+
+  nginx:
+    container_name: nginx_vinylin
+    build: nginx/
+    platform: linux/amd64
+    restart: on-failure
+    volumes:
+      - ./vinylin/static:/static/
+      - ./vinylin/media:/media/
+    ports:
+      - "1337:80"
+    depends_on:
+      - drf_vinylin

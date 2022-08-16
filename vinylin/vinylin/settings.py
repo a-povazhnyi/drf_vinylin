@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from django.urls import reverse_lazy
 
 
-dotenv_path = os.path.join(os.path.dirname(__file__), '../../.env')
+dotenv_path = os.path.join(os.path.dirname(__file__), '../.env')
 if os.path.exists(dotenv_path):
     load_dotenv(dotenv_path)
 
@@ -23,9 +23,8 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = bool(int(os.environ.get('DEBUG')))
 
-ALLOWED_HOSTS = [os.environ.get('ALLOWED_HOSTS')]
-INTERNAL_IPS = [os.environ.get('INTERNAL_IPS')]
-
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS').split()
+INTERNAL_IPS = os.environ.get('INTERNAL_IPS').split()
 
 # Application definition
 INSTALLED_APPS = [
@@ -189,6 +188,16 @@ SIMPLE_JWT = {
         days=int(os.environ.get('REFRESH_TOKEN_LIFETIME', 1))
     ),
 }
+
+REDIS_HOST = os.environ.get('REDIS_HOST')
+REDIS_PORT = os.environ.get('REDIS_PORT')
+
+CELERY_BROKER_URL = f'redis://{REDIS_HOST}:{REDIS_PORT}'
+CELERY_BROKER_TRANSPORT_OPTION = {'visibility_timeout': 3600}
+CELERY_RESULT_BACKEND = f'redis://{REDIS_HOST}:{REDIS_PORT}'
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
 
 SWAGGER_SETTINGS = {
     'SECURITY_DEFINITIONS': {
